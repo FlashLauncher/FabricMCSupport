@@ -4,6 +4,7 @@ import Launcher.*;
 import Launcher.base.LaunchListener;
 import UIL.Lang;
 import UIL.base.IImage;
+import Utils.ListMap;
 import Utils.json.Json;
 import Utils.json.JsonDict;
 import Utils.json.JsonElement;
@@ -11,9 +12,11 @@ import Utils.web.WebClient;
 import Utils.web.WebResponse;
 import minecraft.IMinecraftVersion;
 import minecraft.MinecraftList;
+import minecraft.WebVersion;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.*;
 import java.util.function.Consumer;
@@ -25,14 +28,16 @@ public class FabricMCMarket extends Market {
 
     public final WebClient client = new WebClient();
 
+    private final ListMap<String, WebVersion> combinations = new ListMap<>();
+
     private TaskGroup group = null;
 
     public FabricMCMarket(final FabricMCSupport plugin, final String id, final IImage icon, final boolean smooth) {
         super(id, icon);
         this.plugin = plugin;
-        versions = new MinecraftList(Lang.get("fabricmc.versions.all"), getIcon(), smooth);
-        versionsStables = new MinecraftList(Lang.get("fabricmc.versions.stables"), getIcon(), smooth);
-        versionsUnstable = new MinecraftList(Lang.get("fabricmc.versions.notStables"), getIcon(), smooth);
+        versions = new FabricMCList(plugin, Lang.get("fabricmc.versions.all"), getIcon(), smooth);
+        versionsStables = new FabricMCList(plugin, Lang.get("fabricmc.versions.stables"), getIcon(), smooth);
+        versionsUnstable = new FabricMCList(plugin, Lang.get("fabricmc.versions.notStables"), getIcon(), smooth);
         loaders = new MinecraftList(Lang.get("fabricmc.loaders"), getIcon(), smooth);
         client.allowRedirect = true;
         client.headers.put("User-Agent", "FlashLauncher/FabricMCSupport/" + plugin.getVersion() + " (mcflashlauncher@gmail.com)");
@@ -55,13 +60,8 @@ public class FabricMCMarket extends Market {
                     versions = new ArrayList<>();
                     for (final IMinecraftVersion ver : loaders)
                         versions.add(new IMinecraftVersion() {
-                            @Override
-                            public String getID() {
-                                return "fabric-loader-" + ver.getID() + "-" + version;
-                            }
-
-                            @Override public LaunchListener init(RunProc configuration) { return null; }
-
+                            @Override public String getID() { return "fabric-loader-" + ver.getID() + "-" + version; }
+                            @Override public LaunchListener init(final RunProc configuration) { return null; }
                             @Override public String toString() { return ver.toString(); }
                         });
                 }
@@ -73,13 +73,14 @@ public class FabricMCMarket extends Market {
         @Override public int size() { return loaders.size(); }
         @Override public void add(IMinecraftVersion ver) {}
         @Override public void addAll(Collection<? extends IMinecraftVersion> versions) {}
-        @Override public IMinecraftVersion get(String id) { return null; }
+        @Override public IMinecraftVersion get(final String id) { return null; }
         @Override public void remove(IMinecraftVersion ver) {}
         @Override public void removeAll(Collection<? extends IMinecraftVersion> versions) {}
         @Override public String toString() { return version; }
         @Override public Iterator<IMinecraftVersion> iterator() { return getVersions().iterator(); }
         @Override public void forEach(Consumer<? super IMinecraftVersion> action) { getVersions().forEach(action); }
         @Override public Spliterator<IMinecraftVersion> spliterator() { return getVersions().spliterator(); }
+        @Override public String getID() { return version; }
     }
 
     @Override
@@ -104,17 +105,8 @@ public class FabricMCMarket extends Market {
                             final JsonDict d = e.getAsDict();
                             loaders.add(new IMinecraftVersion() {
                                 final String version = d.getAsString("version");
-
-                                @Override
-                                public String getID() {
-                                    return version;
-                                }
-
-                                @Override
-                                public LaunchListener init(RunProc configuration) {
-                                    return null;
-                                }
-
+                                @Override public String getID() { return version; }
+                                @Override public LaunchListener init(RunProc configuration) { return null; }
                                 @Override public String toString() { return "Fabric Loader " + version; }
                             });
                         } else
@@ -151,4 +143,21 @@ public class FabricMCMarket extends Market {
     }
 
     @Override public Meta[] find(final String query) { return new Meta[0]; }
+
+    WebVersion get(final String version, final String loader) {
+        final String k = version + "-" + loader;
+        if (versions.get(version) == null || loaders.get(loader) == null)
+            return null;
+        synchronized (combinations) {
+            WebVersion ver = combinations.get(k);
+            if (ver == null)
+                try {
+                    combinations.put(k, ver = new WebVersion(plugin.mcPlugin, client, "fabric-loader-" + loader + "-" + version, null,
+                            URI.create("https://meta.fabricmc.net/v2/versions/loader/" + version + "/" + loader + "/profile/json").toURL(), null));
+                } catch (final MalformedURLException ex) {
+                    ex.printStackTrace();
+                }
+            return ver;
+        }
+    }
 }
