@@ -43,6 +43,8 @@ public class FabricMCMarket extends Market {
         client.headers.put("User-Agent", "FlashLauncher/FabricMCSupport/" + plugin.getVersion() + " (mcflashlauncher@gmail.com)");
     }
 
+    @Override public boolean smoothIcon() { return false; }
+
     private class VerSel extends MinecraftList {
         public final String version;
 
