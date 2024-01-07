@@ -77,6 +77,12 @@ public class FabricMCMarket extends Market {
         @Override public void addAll(Collection<? extends IMinecraftVersion> versions) {}
         @Override public IMinecraftVersion get(final String id) { return null; }
         @Override public void remove(IMinecraftVersion ver) {}
+
+        /**
+         * @since FabricMCSupport 0.2.6
+         */
+        @Override public boolean remove(final String id) { return false; }
+
         @Override public void removeAll(Collection<? extends IMinecraftVersion> versions) {}
         @Override public String toString() { return version; }
         @Override public Iterator<IMinecraftVersion> iterator() { return getVersions().iterator(); }
